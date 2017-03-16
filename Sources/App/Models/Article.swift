@@ -7,13 +7,13 @@
 //
 
 import Foundation
-
-
-import Foundation
 import Vapor
+import Fluent
+
 
 struct Article: Model {
     var id: Node?
+    var exists: Bool = false
     let publisher: String
     let date: String
     let title: String
@@ -46,6 +46,7 @@ struct Article: Model {
     static func revert(_ database: Database) throws {
         try database.delete("articles")
     }
+    
     init(node: Node, in: Context) throws {
         id = try node.extract("id")
         publisher = try node.extract("publisher")
@@ -66,3 +67,8 @@ struct Article: Model {
     }
 }
 
+extension Article {
+    func legislators() throws -> Siblings<Legislator> {
+        return try siblings()
+    }
+}

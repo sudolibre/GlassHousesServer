@@ -7,9 +7,12 @@
 //
 
 import Foundation
+import Vapor
+import Fluent
 
 struct Device: Model {
     var id: Node?
+    var exists: Bool = false
     let token: String
     func makeNode(context: Context) throws -> Node {
         return try Node(node: [
@@ -28,10 +31,16 @@ struct Device: Model {
     }
     init(node: Node, in: Context) throws {
         id = try node.extract("id")
-        token = try node.extract("token")
+        token = try node.extract("deviceToken")
     }
     
     init(token: String) {
         self.token = token
+    }
+}
+
+extension Device {
+    func legislators() throws -> Siblings<Legislator> {
+        return try siblings()
     }
 }

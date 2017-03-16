@@ -8,26 +8,25 @@
 
 import Foundation
 import Vapor
+import Fluent
 
 struct Legislator: Model {
     var id: Node?
-    let name: String
-    let age: Int
-    let email: String
+    var exists: Bool = false
+    let fullName: String
+    let chamber: String
     
     func makeNode(context: Context) throws -> Node {
         return try Node(node: ["id": id,
-                           "name": name,
-                           "age": age,
-                           "email": email])
+                           "fullname": fullName,
+                           "chamber": chamber])
     }
     
     static func prepare(_ database: Database) throws {
         try database.create("legislators") { legislators in
             legislators.id()
-            legislators.string("name")
-            legislators.int("age")
-            legislators.string("email")
+            legislators.string("fullname")
+            legislators.string("chamber")
         }
     }
     
@@ -37,14 +36,21 @@ struct Legislator: Model {
     
     init(node: Node, in: Context) throws {
         id = try node.extract("id")
-        name = try node.extract("name")
-        age = try node.extract("age")
-        email = try node.extract("email")
+        fullName = try node.extract("fullname")
+        chamber = try node.extract("chamber")
     }
     
-    init(name: String, age: Int, email: String) {
-        self.name = name
-        self.age = age
-        self.email = email
+    init(fullName: String, chamber: String) {
+        self.fullName = fullName
+        self.chamber = chamber
+    }
+}
+
+extension Legislator {
+    func articles() throws -> Siblings<Article> {
+        return try siblings()
+    }
+    func devices() throws -> Siblings<Device> {
+        return try siblings()
     }
 }

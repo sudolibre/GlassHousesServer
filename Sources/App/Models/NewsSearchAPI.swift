@@ -7,7 +7,12 @@
 //
 
 import Foundation
-import Crashlytics
+
+enum APIResponse {
+    case success(Data)
+    case networkError(HTTPURLResponse)
+    case failure(Error)
+}
 
 class NewsSearchAPI {
     private static let session = URLSession.shared
@@ -62,17 +67,13 @@ class NewsSearchAPI {
                 case (.some(let data), .some(let response), _) where 200..<300 ~= response.statusCode:
                     completion(.success(data))
                 case (_, .some(let response), _):
-                    Answers.logCustomEvent(withName: "HTTP Error", customAttributes: [
-                        "Code": response.statusCode
-                        ])
+                    print("HTTP Error \(response.statusCode)")
                     completion(.networkError(response))
                 case (_,_, .some(let error)):
-                    Answers.logCustomEvent(withName: "System Error", customAttributes: [
-                        "Description": error.localizedDescription
-                        ])
+                    print("System Error \(error.localizedDescription)")
                     completion(.failure(error))
                 default:
-                    Answers.logCustomEvent(withName: "Network Reponse Unexpectedly Reached Default Case", customAttributes: nil)
+                    print("Network Reponse Unexpectedly Reached Default Case")
                 }
                 
             }.resume()
