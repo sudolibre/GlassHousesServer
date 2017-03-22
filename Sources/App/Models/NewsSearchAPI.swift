@@ -14,7 +14,25 @@ enum APIResponse {
     case failure(Error)
 }
 
-class NewsSearchAPI {
+struct NewsSearchAPI {
+    private static let key: String = {
+        let path = Bundle.main.path(forResource: "API", ofType: "plist")!
+        let plist = FileManager.default.contents(atPath: path)!
+        let dictionary = try! PropertyListSerialization.propertyList(from: plist, options: .mutableContainers, format: nil) as! [String: String]
+        return dictionary["BingKey"]!
+    }()
+    
+    let queryParameters = [
+        "count": "10",
+        "offset": "0",
+        "mkt": "en-us",
+        "safeSearch": "Moderate",
+        "freshness": "Month"
+    ]
+
+}
+
+class NewsSearchAPI2 {
     private static let session = URLSession.shared
     private static let key: String = {
         let path = Bundle.main.path(forResource: "API", ofType: "plist")!
