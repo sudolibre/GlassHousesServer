@@ -20,18 +20,45 @@ struct Article: Model {
     var publisher: String
     var name: String
     
+    func makeNode(context: Context) throws -> Node {
+        return try Node(node: [
+            "id": id,
+            "date": date.timeIntervalSince1970,
+            "description": description,
+            "url": url,
+            "name": name,
+            "publisher": publisher
+            ])
+    }
+    
+    static func fetchOrCreate(json: JSON?) throws -> Article? {
+        guard let json = json else {
+            return nil
+        }
+        if let url = json["url"]?.string,
+            let article = try Article.query().filter("url", url).first() {
+            return article
+        } else {
+            if var article = Article(json: json) {
+                try article.save()
+                return article
+            } else {
+                return nil
+            }
+        }
+    }
     
     static func getDateFromString(_ dateString: String) -> Date {
-    let dateFormatter1: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        return df
-    }()
-    let dateFormatter2: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
+        let dateFormatter1: DateFormatter = {
+            let df = DateFormatter()
+            df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+            return df
+        }()
+        let dateFormatter2: DateFormatter = {
+            let df = DateFormatter()
+            df.dateFormat = "yyyy-MM-dd"
+            return df
+        }()
         if let date = dateFormatter1.date(from: dateString) {
             return date
         } else if let date = dateFormatter2.date(from: dateString) {
@@ -43,16 +70,7 @@ struct Article: Model {
         }
     }
     
-    func makeNode(context: Context) throws -> Node {
-        return try Node(node: [
-            "id": id,
-            "date": date.timeIntervalSince1970,
-            "description": description,
-            "url": url,
-            "name": name,
-            "publisher": publisher
-            ])
-    }
+    
     static func prepare(_ database: Database) throws {
         try database.create("articles") { articles in
             articles.id()
@@ -61,7 +79,7 @@ struct Article: Model {
             articles.custom("url", type: "text")
             articles.string("name")
             articles.string("publisher")
-       }
+        }
     }
     static func revert(_ database: Database) throws {
         try database.delete("articles")
@@ -79,11 +97,11 @@ struct Article: Model {
     
     init?(json: JSON) {
         guard let description = json["description"]?.string,
-        let url = json["url"]?.string,
-        let name = json["name"]?.string,
-        let publisher = json["provider", 0, "name"]?.string,
-        let dateString = json["datePublished"]?.string else {
-            return nil
+            let url = json["url"]?.string,
+            let name = json["name"]?.string,
+            let publisher = json["provider", 0, "name"]?.string,
+            let dateString = json["datePublished"]?.string else {
+                return nil
         }
         self.description = description
         self.url = url

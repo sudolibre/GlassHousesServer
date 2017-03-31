@@ -18,10 +18,30 @@ struct Legislator: Model {
     
     func makeNode(context: Context) throws -> Node {
         return try Node(node: ["id": id,
-                           "fullname": fullName,
-                           "chamber": chamber])
+                               "fullname": fullName,
+                               "chamber": chamber])
     }
     
+    static func fetchOrCreate(json: JSON?) throws -> Legislator? {
+        guard let json = json else {
+            return nil
+        }
+        var legislator = try Legislator(node: json)
+        let legislators = try Legislator.query().filter("fullname", legislator.fullName).all()
+        switch legislators.count {
+        case 1:
+            return legislators.first!
+        case 2...Int.max:
+            if let existingLegislator =  legislators.first(where: {$0 == legislator}) {
+                return existingLegislator
+            }
+            fallthrough
+        default:
+            try legislator.save()
+            return legislator
+        }
+    }
+
     static func prepare(_ database: Database) throws {
         try database.create("legislators") { legislators in
             legislators.id()
@@ -52,5 +72,11 @@ extension Legislator {
     }
     func devices() throws -> Siblings<Device> {
         return try siblings()
+    }
+}
+
+extension Legislator: Equatable {
+    static func ==(lhs: Legislator, rhs: Legislator) -> Bool {
+        return lhs.fullName == rhs.fullName && lhs.chamber == rhs.chamber
     }
 }

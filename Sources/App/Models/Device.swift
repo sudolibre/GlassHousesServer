@@ -13,12 +13,25 @@ import Fluent
 struct Device: Model {
     var id: Node?
     var exists: Bool = false
-    let token: String
+    var token: String
     func makeNode(context: Context) throws -> Node {
         return try Node(node: [
             "id": id,
             "token": token,
             ])
+    }
+    static func fetchOrCreate(json: JSON?) throws -> Device? {
+        guard let json = json else {
+            return nil
+        }
+        if let token = json["token"]?.string,
+        let device = try Device.query().filter("token", token).first() {
+            return device
+        } else {
+            var device = try Device(node: json)
+            try device.save()
+            return device
+        }
     }
     static func prepare(_ database: Database) throws {
         try database.create("devices") { devices in
@@ -31,11 +44,7 @@ struct Device: Model {
     }
     init(node: Node, in: Context) throws {
         id = try node.extract("id")
-        token = try node.extract("deviceToken")
-    }
-    
-    init(token: String) {
-        self.token = token
+        token = try node.extract("token")
     }
 }
 
