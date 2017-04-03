@@ -155,12 +155,12 @@ drop.get { req in
         ])
 }
 
-//drop.get("legislators", Int.self) { req, userID in
-//    guard let legislator = try Legislator.find(userID) else {
-//        throw Abort.notFound
-//    }
-//    return try legislator.makeJSON()
-//}
+drop.get("legislators", Int.self) { req, userID in
+    guard let legislator = try Legislator.find(userID) else {
+        throw Abort.notFound
+    }
+    return try legislator.makeJSON()
+}
 //
 //drop.post("legislator") { (req) in
 //    var legislator = try Legislator(node: req.json)
