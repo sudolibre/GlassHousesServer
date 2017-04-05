@@ -52,8 +52,11 @@ func notifyConstituents() {
 func updateCommand() throws {
     drop.console.info("update function executing...", newLine: true)
     try drop.startServers()
+    drop.console.info("update: starting servers...", newLine: true)
     let prepare = drop.commands.first(where: {$0 is Prepare})
     try prepare?.run(arguments: [])
+    drop.console.info("update: preparing databnase servers...", newLine: true)
+
     try refreshNews()
 }
 
@@ -134,6 +137,7 @@ func asscoiateMentioned(_ legislators: [Legislator], with article: Article) {
 }
 
 func saveCurrentTime() {
+    drop.console.info("save time function executing...", newLine: true)
     let directory = drop.resourcesDir
     let time = Date()
     let timeInterval = String(time.timeIntervalSince1970)
