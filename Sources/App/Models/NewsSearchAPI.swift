@@ -18,7 +18,7 @@ struct NewsSearchAPI {
     private static let key: String = {
         let path = Bundle.main.path(forResource: "API", ofType: "plist")!
         let plist = FileManager.default.contents(atPath: path)!
-        let dictionary = try! PropertyListSerialization.propertyList(from: plist, options: .mutableContainers, format: nil) as! [String: String]
+        let dictionary = try! PropertyListSerialization.propertyList(from: plist, format: nil) as! [String: String]
         return dictionary["BingKey"]!
     }()
     
