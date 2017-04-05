@@ -23,11 +23,14 @@ do {
 
 func sendAPNS(payload: Payload, token: String) throws {
     drop.console.info("apns function executing...", newLine: true)
-    let options = try! Options(topic: "com.jonday.glasshouses", teamId: "L72L2B36E9", keyId: "QP7Q9VVUHK", keyPath: "/Users/noj/Code/GlassHouses/APNsAuthKey_QP7Q9VVUHK.p8", port: .p443, debugLogging: true)
-    let vaporAPNS = try VaporAPNS(options: options)
-    let pushMessage = ApplePushMessage(topic: "com.jonday.glasshouses", priority: .immediately, payload: payload, sandbox: true)
-    let result = vaporAPNS.send(pushMessage, to: token)
-    print(result)
+    if let privateKey = drop.config["APNS", "PrivateKey"]?.string,
+        let publicKey = drop.config["APNS", "PublicKey"]?.string {
+        let options = try! Options(topic: "com.jonday.glasshouses", teamId: "L72L2B36E9", keyId: "QP7Q9VVUHK", rawPrivKey: privateKey, rawPubKey: publicKey)
+        let vaporAPNS = try VaporAPNS(options: options)
+        let pushMessage = ApplePushMessage(topic: "com.jonday.glasshouses", priority: .immediately, payload: payload, sandbox: true)
+        let result = vaporAPNS.send(pushMessage, to: token)
+        print(result)
+    }
 }
 
 func notifyConstituents() {
@@ -101,8 +104,7 @@ func updateRecentArticles(_ completion: () -> ()) throws {
         return try drop.client.get(uri, headers: headers, query: queryParameters)
     }
     
-    if let config = drop.config["API"]?.object,
-        let key = config["BingKey"]?.string {
+    if let key = drop.config["API", "BingKey"]?.string {
         do {
             let response = try getNewsWithKey(key)
             if let results = response.json?["value"]?.pathIndexableArray {
