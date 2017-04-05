@@ -11,15 +11,18 @@ drop.preparations.append(Article.self)
 drop.preparations.append(Device.self)
 drop.preparations.append(Pivot<Device, Legislator>.self)
 drop.preparations.append(Pivot<Article, Legislator>.self)
+drop.commands.append(UpdateCommand(console: drop.console))
 
 
 do {
-try drop.addProvider(VaporPostgreSQL.Provider.self)
+    try drop.addProvider(VaporPostgreSQL.Provider.self)
 } catch {
     assertionFailure("Error adding provider \(error)")
 }
 
+
 func sendAPNS(payload: Payload, token: String) throws {
+    drop.console.info("apns function executing...", newLine: true)
     let options = try! Options(topic: "com.jonday.glasshouses", teamId: "L72L2B36E9", keyId: "QP7Q9VVUHK", keyPath: "/Users/noj/Code/GlassHouses/APNsAuthKey_QP7Q9VVUHK.p8", port: .p443, debugLogging: true)
     let vaporAPNS = try VaporAPNS(options: options)
     let pushMessage = ApplePushMessage(topic: "com.jonday.glasshouses", priority: .immediately, payload: payload, sandbox: true)
@@ -28,6 +31,8 @@ func sendAPNS(payload: Payload, token: String) throws {
 }
 
 func notifyConstituents() {
+    drop.console.info("notify function executing...", newLine: true)
+
     let articles = try! Article.all()
     
     for article in articles {
@@ -44,16 +49,45 @@ func notifyConstituents() {
     }
 }
 
+func updateCommand() throws {
+    try drop.startServers()
+    let prepare = drop.commands.first(where: {$0 is Prepare})
+    try prepare?.run(arguments: [])
+    try refreshNews()
+//    DispatchQueue.global(qos: .utility).async  {
+//        do {
+//            var databasePresent = false
+//            while !databasePresent {
+//                if Legislator.database != nil { databasePresent = true }
+//            }
+//        } catch {
+//            print(error)
+//        }
+//    }
+}
 
 func refreshNews() throws {
-    try updateRecentArticles() {
+    drop.console.info("refresh function executing...", newLine: true)
+    do {
+        try updateRecentArticles() {
             notifyConstituents()
+        }
+    } catch {
+        print(error)
     }
 }
 
 func updateRecentArticles(_ completion: () -> ()) throws {
+    drop.console.info("update function executing...", newLine: true)
+    
+    var legislators: [Legislator] = []
+
     let key: String? = nil
-    let legislators = try Legislator.all()
+    do {
+        legislators = try Legislator.all()
+    } catch {
+        print(error)
+    }
     
     let legislatorQuery = legislators.reduce("") { (result, legislator) -> String in
         result + "\"\(legislator.fullName)\" OR "
@@ -82,7 +116,7 @@ func updateRecentArticles(_ completion: () -> ()) throws {
                 for result in results {
                     do {
                         if let article = try Article.fetchOrCreate(json: result) {
-                        asscoiateMentioned(legislators, with: article)
+                            asscoiateMentioned(legislators, with: article)
                         }
                     } catch {
                         print(error.localizedDescription)
@@ -93,6 +127,8 @@ func updateRecentArticles(_ completion: () -> ()) throws {
             print(error.localizedDescription)
         }
     } else {
+        drop.console.info("failed to retrieve API Key...", newLine: true)
+
         fatalError("Failed to retrieve news API key")
     }
     completion()
@@ -104,6 +140,23 @@ func asscoiateMentioned(_ legislators: [Legislator], with article: Article) {
         try? pivot.save()
     }
     
+}
+
+func saveCurrentTime() {
+    let directory = drop.resourcesDir
+    let time = Date()
+    let timeInterval = String(time.timeIntervalSince1970)
+    try? timeInterval.write(toFile: directory.appending("/lastUpdate"), atomically: true, encoding: .utf8)
+}
+
+func getLastUpdateTime() -> String {
+    let directory = drop.resourcesDir
+    if let timeIntervalString = try? String(contentsOfFile: directory.appending("/lastUpdate")),
+        let timeInterval = Double(timeIntervalString) {
+        let time = Date(timeIntervalSince1970: timeInterval)
+        return time.description
+    }
+    return "unknown"
 }
 
 
@@ -149,18 +202,17 @@ drop.post("register") { req in
     return try device.makeJSON()
 }
 
-drop.get { req in
-    return try drop.view.make("lastupdate", [
-        "message": drop.localization[req.lang, "welcome", "title"]
-        ])
+drop.get("update") { request in
+    let updateTime = getLastUpdateTime()
+    return "The server was last updated \(updateTime)!"
 }
 
-//drop.get("legislators", Int.self) { req, userID in
-//    guard let legislator = try Legislator.find(userID) else {
-//        throw Abort.notFound
-//    }
-//    return try legislator.makeJSON()
-//}
+drop.get("legislators", Int.self) { req, userID in
+    guard let legislator = try Legislator.find(userID) else {
+        throw Abort.notFound
+    }
+    return try legislator.makeJSON()
+}
 //
 //drop.post("legislator") { (req) in
 //    var legislator = try Legislator(node: req.json)
