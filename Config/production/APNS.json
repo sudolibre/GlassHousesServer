@@ -1,0 +1,4 @@
+{
+    "PrivateKey": "$APNS_Private_Key",
+    "PublicKey": "$APNS_Public_Key"
+}
