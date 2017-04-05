@@ -31,12 +31,14 @@ func sendAPNS(payload: Payload, token: String) throws {
         let pushMessage = ApplePushMessage(topic: "com.jonday.glasshouses", priority: .immediately, payload: payload, sandbox: true)
         drop.console.info("about to send...", newLine: true)
         let result = vaporAPNS.send(pushMessage, to: token)
-        switch result {
-        case .error(_, _, let error as Error), .networkError(let error), .success(_, _, let error as Error):
-            drop.console.info(error.localizedDescription, newLine: true)
-        default:
-            drop.console.info("default case in APNS hit", newLine: true)
-        }
+        drop.console.info("should have result here...", newLine: true)
+
+//        switch result {
+//        case .error(_, _, let error as Error), .networkError(let error), .success(_, _, let error as Error):
+//            drop.console.info(error.localizedDescription, newLine: true)
+//        default:
+//            drop.console.info("default case in APNS hit", newLine: true)
+//        }
     }
 }
 
