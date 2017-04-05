@@ -50,20 +50,11 @@ func notifyConstituents() {
 }
 
 func updateCommand() throws {
+    drop.console.info("update function executing...", newLine: true)
     try drop.startServers()
     let prepare = drop.commands.first(where: {$0 is Prepare})
     try prepare?.run(arguments: [])
     try refreshNews()
-//    DispatchQueue.global(qos: .utility).async  {
-//        do {
-//            var databasePresent = false
-//            while !databasePresent {
-//                if Legislator.database != nil { databasePresent = true }
-//            }
-//        } catch {
-//            print(error)
-//        }
-//    }
 }
 
 func refreshNews() throws {
