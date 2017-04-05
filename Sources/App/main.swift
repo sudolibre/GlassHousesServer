@@ -25,9 +25,11 @@ func sendAPNS(payload: Payload, token: String) throws {
     drop.console.info("apns function executing...", newLine: true)
     if let privateKey = drop.config["APNS", "PrivateKey"]?.string,
         let publicKey = drop.config["APNS", "PublicKey"]?.string {
-        let options = try! Options(topic: "com.jonday.glasshouses", teamId: "L72L2B36E9", keyId: "QP7Q9VVUHK", rawPrivKey: privateKey, rawPubKey: publicKey)
+        let options = try Options(topic: "com.jonday.glasshouses", teamId: "L72L2B36E9", keyId: "QP7Q9VVUHK", rawPrivKey: privateKey, rawPubKey: publicKey)
+        drop.console.info("options created...", newLine: true)
         let vaporAPNS = try VaporAPNS(options: options)
         let pushMessage = ApplePushMessage(topic: "com.jonday.glasshouses", priority: .immediately, payload: payload, sandbox: true)
+        drop.console.info("about to send...", newLine: true)
         let result = vaporAPNS.send(pushMessage, to: token)
         switch result {
         case .error(_, _, let error as Error), .networkError(let error), .success(_, _, let error as Error):
