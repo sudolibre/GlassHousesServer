@@ -4,6 +4,7 @@ import Fluent
 import Foundation
 import HTTP
 import VaporAPNS
+import Jobs
 
 let drop = Droplet()
 drop.preparations.append(Legislator.self)
@@ -13,13 +14,11 @@ drop.preparations.append(Pivot<Device, Legislator>.self)
 drop.preparations.append(Pivot<Article, Legislator>.self)
 drop.commands.append(UpdateCommand(console: drop.console))
 
-
 do {
     try drop.addProvider(VaporPostgreSQL.Provider.self)
 } catch {
     assertionFailure("Error adding provider \(error)")
 }
-
 
 func sendAPNS(payload: Payload, token: String) throws {
     drop.console.info("apns function executing...", newLine: true)
@@ -61,26 +60,12 @@ func notifyConstituents() {
     }
 }
 
-func updateCommand() throws {
-    drop.console.info("update function executing...", newLine: true)
-    try drop.startServers()
-    drop.console.info("update: starting servers...", newLine: true)
-    let prepare = drop.commands.first(where: {$0 is Prepare})
-    try prepare?.run(arguments: [])
-    drop.console.info("update: preparing databnase servers...", newLine: true)
-
-    try refreshNews()
-}
-
-func refreshNews() throws {
-    drop.console.info("refresh function executing...", newLine: true)
-    do {
-        try updateRecentArticles() {
-            notifyConstituents()
-        }
-    } catch {
-        print(error)
+func asscoiateMentioned(_ legislators: [Legislator], with article: Article) {
+    for legislator in legislators where article.description.localizedCaseInsensitiveContains(legislator.fullName) {
+        var pivot = Pivot<Article, Legislator>(article, legislator)
+        try? pivot.save()
     }
+    
 }
 
 func updateRecentArticles(_ completion: () -> ()) throws {
@@ -139,12 +124,30 @@ func updateRecentArticles(_ completion: () -> ()) throws {
     completion()
 }
 
-func asscoiateMentioned(_ legislators: [Legislator], with article: Article) {
-    for legislator in legislators where article.description.localizedCaseInsensitiveContains(legislator.fullName) {
-        var pivot = Pivot<Article, Legislator>(article, legislator)
-        try? pivot.save()
+func refreshNews() throws {
+    drop.console.info("refresh function executing...", newLine: true)
+    do {
+        try updateRecentArticles() {
+            notifyConstituents()
+        }
+    } catch {
+        print(error)
     }
+}
+
+func updateCommand() throws -> () {
+    drop.console.info("update function executing...", newLine: true)
+    try drop.startServers()
+    drop.console.info("update: starting servers...", newLine: true)
+    let prepare = drop.commands.first(where: {$0 is Prepare})
+    try prepare?.run(arguments: [])
+    drop.console.info("update: preparing databnase servers...", newLine: true)
     
+    try refreshNews()
+}
+
+Jobs.add(interval: .days(1)) {
+    try? updateCommand()
 }
 
 func saveCurrentTime() {
