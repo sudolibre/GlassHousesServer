@@ -12,7 +12,6 @@ drop.preparations.append(Article.self)
 drop.preparations.append(Device.self)
 drop.preparations.append(Pivot<Device, Legislator>.self)
 drop.preparations.append(Pivot<Article, Legislator>.self)
-drop.commands.append(UpdateCommand(console: drop.console))
 
 do {
     try drop.addProvider(VaporPostgreSQL.Provider.self)
@@ -33,11 +32,23 @@ func sendAPNS(payload: Payload, token: String) throws {
         drop.console.info("should have result here...", newLine: true)
 
           switch result {
-          case .error(_, _, let error as Error), .networkError(let error), .success(_, _, let error as Error):
-              drop.console.info(error.localizedDescription, newLine: true)
-          default:
-              drop.console.info("default case in APNS hit", newLine: true)
-          }
+          case .error(_,let deviceToken, let error):
+            if case APNSError.unregistered = error {
+                do {
+                    if let device = try Device.query().filter("token", deviceToken).first() {
+                        let pivots = try Pivot<Device, Legislator>.query().filter("device_id", device.id!)
+                        try pivots.all().forEach({try $0.delete()})
+                        try device.delete()
+                    }
+                } catch {
+                    drop.console.info(error.localizedDescription, newLine: true)
+                }
+            }
+          case .networkError(let error):
+            drop.console.info(error.localizedDescription, newLine: true)
+          case.success(_, _, let error):
+            drop.console.info(error.localizedDescription, newLine: true)
+        }
     }
 }
 
