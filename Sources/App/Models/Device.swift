@@ -21,11 +21,13 @@ struct Device: Model {
             ])
     }
     static func fetchOrCreate(json: JSON?) throws -> Device? {
-        guard let json = json else {
+        guard let json = json,
+        let token = json["token"]?.string,
+        !token.isEmpty else {
             return nil
         }
-        if let token = json["token"]?.string,
-        let device = try Device.query().filter("token", token).first() {
+        
+        if let device = try Device.query().filter("token", token).first() {
             return device
         } else {
             var device = try Device(node: json)
@@ -33,6 +35,7 @@ struct Device: Model {
             return device
         }
     }
+    
     static func prepare(_ database: Database) throws {
         try database.create("devices") { devices in
             devices.id()

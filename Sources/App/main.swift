@@ -20,16 +20,13 @@ do {
 }
 
 func sendAPNS(payload: Payload, token: String) throws {
-    drop.console.info("apns function executing...", newLine: true)
     if let privateKey = drop.config["APNS", "PrivateKey"]?.string,
         let publicKey = drop.config["APNS", "PublicKey"]?.string {
         let options = try Options(topic: "com.jonday.glasshouses", teamId: "L72L2B36E9", keyId: "QP7Q9VVUHK", rawPrivKey: privateKey, rawPubKey: publicKey)
-        drop.console.info("options created...", newLine: true)
         let vaporAPNS = try VaporAPNS(options: options)
         let pushMessage = ApplePushMessage(topic: "com.jonday.glasshouses", priority: .immediately, payload: payload, sandbox: true)
-        drop.console.info("about to send...", newLine: true)
+        drop.console.info("sending apns message to \(token)...", newLine: true)
         let result = vaporAPNS.send(pushMessage, to: token)
-        drop.console.info("should have result here...", newLine: true)
 
           switch result {
           case .error(_,let deviceToken, let error):
@@ -41,7 +38,7 @@ func sendAPNS(payload: Payload, token: String) throws {
                         try device.delete()
                     }
                 } catch {
-                    drop.console.info(error.localizedDescription, newLine: true)
+                    drop.console.info("Error sending to \(token): \(error.localizedDescription)", newLine: true)
                 }
             }
           case .networkError(let error):
@@ -62,8 +59,14 @@ func notifyConstituents() {
         
         for legislator in legislators {
             let payload = Payload(title: "News: \(legislator.fullName)", body: article.description)
+            payload.extra = [
+                "legislator": legislator.fullName,
+                "url": article.url,
+            ]
+            if let json = try? article.makeJSON() {
+                payload.extra["json"] = json
+            }
             let devices = try! legislator.devices().all()
-            
             for device in devices {
                 try! sendAPNS(payload: payload, token: device.token)
             }
@@ -73,6 +76,10 @@ func notifyConstituents() {
 
 func asscoiateMentioned(_ legislators: [Legislator], with article: Article) {
     for legislator in legislators where article.description.localizedCaseInsensitiveContains(legislator.fullName) {
+        guard let count = try? Pivot<Article, Legislator>.query().filter("article_id", article.id!).filter("legislator_id", legislator.id!).count(),
+            count == 0 else {
+                return
+        }
         var pivot = Pivot<Article, Legislator>(article, legislator)
         try? pivot.save()
     }
@@ -113,7 +120,13 @@ func updateRecentArticles(_ completion: () -> ()) throws {
         do {
             let response = try getNewsWithKey(key)
             if let results = response.json?["value"]?.pathIndexableArray {
-                try Article.all().forEach({try $0.delete()})
+                let articles = try Article.all()
+                for article in articles {
+                    let pivots = try Pivot<Article, Legislator>.query().filter("article_id", article.id!)
+                    try pivots.all().forEach({try $0.delete()})
+                    try article.delete()
+                }
+                
                 for result in results {
                     do {
                         if let article = try Article.fetchOrCreate(json: result) {
@@ -152,7 +165,7 @@ func updateCommand() throws -> () {
     drop.console.info("update: starting servers...", newLine: true)
     let prepare = drop.commands.first(where: {$0 is Prepare})
     try prepare?.run(arguments: [])
-    drop.console.info("update: preparing databnase servers...", newLine: true)
+    drop.console.info("update: preparing database servers...", newLine: true)
     
     try refreshNews()
 }
@@ -189,37 +202,33 @@ drop.get("forceAPNS") { (req) in
     return "forcing APNS"
 }
 
-
-//drop.get("articles") { (req) in
-//    do{
-//        try sendAPNS()
-//    } catch {
-//        print(error.localizedDescription)
-//    }
-//    //                                                                      a;lskjf;alskjf;asldjfk;alsfj;asldfjk;slkfja;sldfja;sdfja;sdf
-//    let legislators = try Legislator.all().makeNode()
-//    let legislatorsDictionary = ["legislators": legislators]
-//    try checkNews()
-//    return try JSON(node: node)
-//}
-
 drop.post("register") { req in
-    guard let device = try Device.fetchOrCreate(json: req.json),
-        let legislatorsJSON = req.json?["legislators"]?.pathIndexableArray else {
+    guard let legislatorsJSON = req.json?["legislators"]?.pathIndexableArray,
+        let legislators = try? legislatorsJSON.flatMap({try Legislator.fetchOrCreate(json: $0)}),
+        !legislators.isEmpty else {
             throw Abort.badRequest
     }
-    let legislators = try legislatorsJSON.flatMap({try Legislator.fetchOrCreate(json: $0)})
     
-    guard !legislators.isEmpty else {
-        throw Abort.badRequest
+    let responseNode: [String: JSON] = {
+        var dictionary: [String: JSON] = [:]
+        legislators.forEach { (legislator) in
+            dictionary[legislator.fullName] = try? legislator.articles().all().makeJSON()
+        }
+        return dictionary
+    }()
+    
+    if let device = try Device.fetchOrCreate(json: req.json) {
+        try legislators.forEach{ (legislator) in
+            guard let count = try? Pivot<Device, Legislator>.query().filter("device_id", device.id!).filter("legislator_id", legislator.id!).count(),
+                count == 0 else {
+                    return
+            }
+            var pivot = Pivot<Device, Legislator>(device, legislator)
+            try pivot.save()
+        }
     }
     
-    try legislators.forEach{ (legislator) in
-        var pivot = Pivot<Device, Legislator>(device, legislator)
-        try pivot.save()
-    }
-    
-    return try device.makeJSON()
+    return try JSON(node: responseNode)
 }
 
 drop.get("update") { request in
@@ -233,17 +242,6 @@ drop.get("legislators", Int.self) { req, userID in
     }
     return try legislator.makeJSON()
 }
-//
-//drop.post("legislator") { (req) in
-//    var legislator = try Legislator(node: req.json)
-//    print(legislator.fullName)
-//    do {
-//    try legislator.save()
-//    } catch {
-//        print(error.localizedDescription)
-//    }
-//    return try legislator.makeJSON()
-//}
 
 
 drop.resource("posts", PostController())
